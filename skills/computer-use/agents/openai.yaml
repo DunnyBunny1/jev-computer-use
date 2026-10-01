@@ -1,0 +1,4 @@
+interface:
+  display_name: "Computer Use"
+  short_description: "Fast Jev browser actions with verified results"
+  default_prompt: "Use $computer-use to complete a browser task and verify the result."

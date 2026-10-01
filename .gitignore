@@ -1,0 +1,22 @@
+.venv/
+runs/
+inspections/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.env
+.env.*
+!.env.example
+skills/**/.runtime.json
+dist/
+bench/results-*.json
+.osworld/
+infra/gcp/.terraform/
+infra/gcp/terraform.tfvars
+infra/gcp/*.tfstate*
+results/
+
+# Local raw reliability measurements; keep only the prose summary in Git.
+bench/published/
+
+benchmarks/osworld/*.jsonl
