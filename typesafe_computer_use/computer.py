@@ -86,7 +86,7 @@ def main(argv=None):
             "--profile", type=Path, help="Dedicated reusable automation profile; never use your normal browser profile"
         )
         p.add_argument("--headed", action="store_true")
-        p.add_argument("--engine", choices=["browser-use", "ultrafast", "planned"], default="browser-use")
+        p.add_argument("--engine", choices=["hybrid", "browser-use", "ultrafast", "planned"], default="hybrid")
         p.add_argument("--out", type=Path, default=Path.home() / ".local/share/jev-computer-use/runs/tasks")
         p.add_argument("--goal", default="Inspect the current page")
         p.add_argument("--steps", type=int, default=60)
@@ -135,7 +135,7 @@ def main(argv=None):
             args.url = saved.get("url_after")
     if not args.url and not args.attach_port:
         ap.error("Provide --url or an explicitly selected --attach-port")
-    if args.engine == "browser-use" and args.no_vision:
+    if args.engine in {"browser-use", "hybrid"} and args.no_vision:
         ap.error("The Browser Use engine requires vision for recovery; use --engine ultrafast for text-only operation")
     folder = RunFolder.create(args.out)
     with ExitStack() as stack:
@@ -148,7 +148,7 @@ def main(argv=None):
         else:
             browser = stack.enter_context(Chrome(headed=args.headed, profile=str(args.profile) if args.profile else None))
         session = stack.enter_context(browser.attach())
-        if args.engine in {"ultrafast", "browser-use"}:
+        if args.engine in {"ultrafast", "browser-use", "hybrid"}:
             session.call(
                 "Emulation.setDeviceMetricsOverride",
                 {"width": 1120, "height": 780, "deviceScaleFactor": 1, "mobile": False},
@@ -159,11 +159,18 @@ def main(argv=None):
         if args.command == "inspect":
             result = base_state(args.goal, perceive(session), [], url_catalog=None)
             (folder.root / "observation.json").write_text(json.dumps(result, indent=2))
-        elif args.engine == "browser-use":
+        elif args.engine in {"browser-use", "hybrid"}:
             from .browser.browser_use_engine import run_browser_use
+            from .browser.hybrid import run_hybrid
 
-            result = run_browser_use(
-                session, args.goal, output=folder.root, max_steps=args.steps, max_seconds=args.seconds, jev=not args.always_plan
+            runner = run_hybrid if args.engine == "hybrid" and not args.always_plan else run_browser_use
+            result = runner(
+                session,
+                args.goal,
+                output=folder.root,
+                max_steps=args.steps,
+                max_seconds=args.seconds,
+                **({} if runner is run_hybrid else {"jev": not args.always_plan}),
             )
             target = result.get("target_id")
             if target and target != session.ws_url.rsplit("/", 1)[-1]:

@@ -10,12 +10,13 @@ from .questions import MAX_STEPS
 
 
 class Agent:
-    def __init__(self, session, goals, *, record_dir=None, screenshots=False):
+    def __init__(self, session, goals, *, record_dir=None, screenshots=False, external_recovery=False):
         task = goals.strip() if isinstance(goals, str) else "\n".join(goals).strip()
         if not task:
             raise ValueError("Supply a task")
         plan = [task]
         self.pending_text = None
+        self.external_recovery = external_recovery
         self.browser = Browser(session)
         self.record_dir = Path(record_dir) if record_dir else None
         self.screenshots = screenshots or bool(record_dir)
@@ -74,7 +75,9 @@ class Agent:
                 raise ValueError("This run has stopped. Start a fresh demo.")
             if len(state["decisions"]) >= MAX_STEPS * 2:
                 raise ValueError("Reached the demo's model-call budget")
-            state["decision"] = choose(state["page"], state["goal"], state["history"])
+            state["decision"] = choose(
+                state["page"], state["goal"], state["history"], **({"recovery": True} if self.external_recovery else {})
+            )
             state["decisions"].append(
                 {
                     **state["decision"],
@@ -83,12 +86,34 @@ class Agent:
                 }
             )
             uncertain = state["decision"].get("target_confidence") is not None and state["decision"]["target_confidence"] < 0.6
+            selected_action = next((a for a in state["page"]["actions"] if a["id"] == state["decision"]["choice"]), None)
+            if (
+                self.external_recovery
+                and selected_action
+                and selected_action["kind"] == "fill"
+                and selected_action["label"] in {"textbox", "searchbox", "combobox", "spinbutton"}
+                and not selected_action.get("context", "").strip()
+            ):
+                state["decision"]["recover"] = "unlabelled-field"
+                state["status"] = "predicted"
+                return self.snapshot()
             recent = state["history"][-4:]
             cycling = (len(recent) == 4 and len({(h["action"], h.get("text")) for h in recent}) <= 2) or (
                 len(recent) >= 2 and all(h["page_changed"] is False for h in recent[-2:])
             )
+            if self.external_recovery and (uncertain or cycling or state["decision"]["choice"] == "DELEGATE"):
+                state["decision"]["recover"] = (
+                    "unsupported"
+                    if state["decision"]["choice"] == "DELEGATE"
+                    else "uncertain"
+                    if uncertain
+                    else "repeated-actions"
+                )
+                state["status"] = "predicted"
+                return self.snapshot()
             if (
-                state["decision"]["choice"] not in {"DONE", "BLOCKED"}
+                not self.external_recovery
+                and state["decision"]["choice"] not in {"DONE", "BLOCKED"}
                 and (uncertain or cycling)
                 and len(state.get("recovery_calls", [])) < 3
             ):
@@ -125,6 +150,8 @@ class Agent:
             decision, page = state["decision"], state["page"]
             if not decision or body.get("fingerprint") != page["fingerprint"]:
                 raise ValueError("Observe and choose before acting")
+            if decision.get("recover"):
+                raise ValueError("Recovery required before an action can execute")
             # Consume once, before any mutation or model call. A retry cannot double-click.
             state["decision"] = None
             selected = decision["choice"]
@@ -152,6 +179,10 @@ class Agent:
                     self.pending_text = (context, text, helper)
                     state["text_calls"].append({**helper, "field": action["label"], "value": text})
             # Browser.act checks freshness immediately before input, including after text generation.
+            from . import model
+
+            if model.DEADLINE is not None and time.perf_counter() >= model.DEADLINE:
+                raise TimeoutError("Task deadline reached before input")
             state["browser"].act(action, page, text=text)
             self.pending_text = None
             state["elapsed_ms"] = round((time.perf_counter() - state["started_at"]) * 1000)

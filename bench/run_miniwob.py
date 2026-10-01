@@ -94,7 +94,9 @@ def main():
     ap.add_argument("--checkout", type=Path, required=True)
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument(
-        "--mode", choices=["reflex", "planned", "adaptive", "ultrafast", "browser-use", "browser-use-llm"], required=True
+        "--mode",
+        choices=["reflex", "planned", "adaptive", "ultrafast", "hybrid", "browser-use", "browser-use-llm"],
+        required=True,
     )
     ap.add_argument(
         "--split",
@@ -165,7 +167,10 @@ def main():
     )
     print(f"Batch: {batch}", flush=True)
     results = []
-    with TypeSafeClient() as client, benchmark_origin(args.checkout, args.mode.startswith("browser-use")) as origin:
+    with (
+        TypeSafeClient() as client,
+        benchmark_origin(args.checkout, args.mode.startswith("browser-use") or args.mode == "hybrid") as origin,
+    ):
         for task in tasks:
             for seed in split["seeds"]:
                 folder = batch / f"{task}-{seed}"
@@ -209,8 +214,11 @@ def main():
                                 jev=args.mode == "browser-use",
                             )
                             row.update(outcome=result["outcome"], steps=result["steps"])
-                        elif args.mode == "ultrafast":
-                            result = run_ultrafast(
+                        elif args.mode in {"ultrafast", "hybrid"}:
+                            from typesafe_computer_use.browser.hybrid import run_hybrid
+
+                            runner = run_hybrid if args.mode == "hybrid" else run_ultrafast
+                            result = runner(
                                 session,
                                 goal,
                                 output=folder,

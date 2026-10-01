@@ -14,11 +14,15 @@ from .questions import NEXT_ACTION, TARGET, TEXT_VALUE
 CLIENT = httpx.AsyncClient(http2=True, timeout=httpx.Timeout(8, connect=5))
 NETWORK_RUNNER = asyncio.Runner()
 REQUEST_SECONDS = 8
+DEADLINE = None
 
 
 async def _post_once(url, key, body):
     # Read timeouts alone reset on provider heartbeat bytes. Cancel the entire request.
-    async with asyncio.timeout(REQUEST_SECONDS):
+    remaining = REQUEST_SECONDS if DEADLINE is None else min(REQUEST_SECONDS, DEADLINE - time.perf_counter())
+    if remaining <= 0:
+        raise TimeoutError("Task deadline reached")
+    async with asyncio.timeout(remaining):
         return await CLIENT.post(url, json=body, headers={"Authorization": f"Bearer {key}"})
 
 
@@ -118,7 +122,7 @@ def eligible_actions(state, goal):
     return [a for a in state["actions"] if a.get("pagination", {}).get("ordinal_from_observed_pages", wanted) == wanted]
 
 
-def choose(state, goal, history):
+def choose(state, goal, history, *, recovery=False):
     elements, targets, controls = action_space(eligible_actions(state, goal))
     labels = {
         "CLICK": "Click an element, button, menu option, autocomplete suggestion, or calendar day.",
@@ -131,7 +135,16 @@ def choose(state, goal, history):
         DONE="All requested work is complete, including applicable form Submit or search confirmation. No pending step remains.",
         BLOCKED="No supported operation can progress.",
     )
-    questions = {"operation": {"type": "choice", "criteria": operations, "instructions": {"goal": goal, "rules": NEXT_ACTION}}}
+    if recovery:
+        operations["DELEGATE"] = (
+            "Use visual/browser recovery for an image or canvas that must be interpreted, a slider/drag/keyboard widget, "
+            "a frame, shadow DOM, new tab, or an interaction that cannot be completed using the observed controls. "
+            "Never guess unseen visual content. Prefer ordinary observed controls whenever they suffice."
+        )
+    rules = NEXT_ACTION
+    if recovery:
+        rules += "\nIf the task requires copying, reading or matching a pictured example, choose DELEGATE before manipulating its controls. A character named in the goal does not reveal the exact pictured pattern. Never guess pixels from a familiar symbol."
+    questions = {"operation": {"type": "choice", "criteria": operations, "instructions": {"goal": goal, "rules": rules}}}
     for operation, candidates in targets.items():
         questions[operation.lower() + "_target"] = {
             "type": "choice",
@@ -165,6 +178,7 @@ def choose(state, goal, history):
         "state": {
             "page": {k: state[k] for k in ("url", "title", "text")},
             "elements": elements,
+            "visual_surfaces": state.get("visual_surfaces", []),
             "recent_actions": [{k: h.get(k) for k in ("action", "kind", "text", "page_changed")} for h in history[-10:]],
         },
         "questions": questions,

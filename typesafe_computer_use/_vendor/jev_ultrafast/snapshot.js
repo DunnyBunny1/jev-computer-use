@@ -167,6 +167,9 @@
   if (scrollY>0) actions.push({id:'scroll_up',kind:'scroll',label:'Scroll up',delta:-560});
   actions.push({id:'wait',kind:'wait',label:'Wait for the page to update'});
   const text_blocks=[...document.querySelectorAll('p,pre,article')].filter(visible).slice(0,20).map(e=>({text:e.innerText.slice(0,1500),words:e.innerText.trim().split(/\s+/).slice(0,200).map((word,i)=>({position:i+1,word}))}));
-  return {url:location.href,title:document.title,w:innerWidth,h:innerHeight,text,text_blocks,
+  const visual_surfaces=[...document.querySelectorAll('img,canvas,iframe,[role="slider"],input[type="range"]')]
+    .filter(e=>{const r=e.getBoundingClientRect();return visible(e)&&r.width>1&&r.height>1&&r.bottom>0&&r.top<innerHeight&&r.right>0&&r.left<innerWidth;})
+    .slice(0,30).map(e=>({kind:e.tagName.toLowerCase(),role:e.getAttribute('role'),label:name(e).slice(0,200)}));
+  return {url:location.href,title:document.title,w:innerWidth,h:innerHeight,text,text_blocks,visual_surfaces,
     writer_text:writerWords.join("\n").slice(0,6000),scroll:{y:scrollY,height},actions,marker,page_key,guards,omitted_actions};
 })()

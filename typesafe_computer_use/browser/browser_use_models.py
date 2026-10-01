@@ -8,7 +8,11 @@ def funding_error(exc):
     status = getattr(exc, "status_code", None)
     message = str(exc).lower()
     return status in {401, 402, 403, 429} or (
-        status == 400 and any(word in message for word in ("credit balance", "insufficient credit", "billing", "quota"))
+        status in {400, 412}
+        and any(
+            word in message
+            for word in ("credit balance", "insufficient credit", "billing", "quota", "spending limit", "invoices")
+        )
     )
 
 

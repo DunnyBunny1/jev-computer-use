@@ -30,7 +30,13 @@ async def serve():
     with contextlib.redirect_stdout(sys.stderr):
         from browser_use import Agent, BrowserSession, Tools
         from browser_use.agent.views import ActionResult, AgentStepInfo
-        from browser_use_policy import JevBrowserModel, keyboard_requires_user, permitted_navigation, tiny_hit_area
+        from browser_use_policy import (
+            JevBrowserModel,
+            keyboard_requires_user,
+            permitted_navigation,
+            recovery_results,
+            tiny_hit_area,
+        )
         from PIL import Image
 
         config = json.loads(await asyncio.to_thread(sys.stdin.readline))
@@ -98,6 +104,15 @@ async def serve():
             ]
         )
         tools.set_coordinate_clicking(True)
+
+        if config.get("recovery_mode"):
+
+            @tools.action(
+                "Return control to the fast text-based controller after the difficult subtask is resolved. Give the next unfinished step using visible names and values, NEVER element indices or coordinates. Do not use while interpreting or reproducing a visual pattern.",
+                terminates_sequence=True,
+            )
+            async def resume_fast(guidance: str):
+                return ActionResult(long_term_memory="Fast controller handoff: " + guidance[:3000])
 
         @tools.action(
             "Drag an observed element to viewport coordinates. Use the slider handle index for sliders; keyboard Home/End/Arrow keys after focusing the handle can be more precise.",
@@ -204,6 +219,10 @@ async def serve():
                 if request["command"] == "stop":
                     break
                 agent.settings.max_actions_per_step = min(5, request.get("remaining_actions", 5))
+                if request.get("target_id"):
+                    await browser.get_or_create_cdp_session(request["target_id"], focus=True)
+                if request.get("recovery_context"):
+                    agent.state.last_result = recovery_results(agent.state.last_result, request["recovery_context"], ActionResult)
                 await asyncio.wait_for(
                     agent.step(AgentStepInfo(step_number=agent.state.n_steps - 1, max_steps=config["max_steps"])),
                     timeout=request["timeout"],
@@ -225,6 +244,10 @@ async def serve():
                         else [],
                         "errors": [r.error for r in history.result if r.error] if history else [],
                         "answer": agent.history.final_result() if agent.history.is_done() else None,
+                        "memory": history.model_output.memory if history and history.model_output else "",
+                        "observations": [r.extracted_content or r.long_term_memory for r in history.result if not r.error]
+                        if history
+                        else [],
                     }
                 )
         finally:

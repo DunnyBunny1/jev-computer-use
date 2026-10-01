@@ -31,6 +31,7 @@ form.onsubmit=async event=>{event.preventDefault();
 def main():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--engine", choices=["browser-use", "hybrid"], default="browser-use")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     credentials()
@@ -91,9 +92,10 @@ root.querySelector('form').onsubmit=async event=>{event.preventDefault();
             with Chrome() as chrome, chrome.attach() as session:
                 act.navigate(session, f"http://127.0.0.1:{server.server_port}/{name}")
                 act.wait_for_load(session)
-                result = run_browser_use(
-                    session, goal, output=folder, max_steps=30, max_seconds=120, stop_when=lambda: bool(receipts)
-                )
+                from typesafe_computer_use.browser.hybrid import run_hybrid
+
+                runner = run_hybrid if args.engine == "hybrid" else run_browser_use
+                result = runner(session, goal, output=folder, max_steps=30, max_seconds=120, stop_when=lambda: bool(receipts))
                 passed = receipts == [{"path": receipt_path, "value": value}]
                 results.append(
                     {

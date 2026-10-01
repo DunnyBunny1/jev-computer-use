@@ -169,6 +169,7 @@ def test_missing_text_credential_stops_before_guessing(monkeypatch):
 @pytest.fixture
 def runner():
     a = loop.Agent.__new__(loop.Agent)
+    a.external_recovery = False
     a.screenshots = False
     a.pending_text = None
     p = page()

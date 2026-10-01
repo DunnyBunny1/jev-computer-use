@@ -28,6 +28,22 @@ def permitted_navigation(url):
         return False
 
 
+def recovery_results(previous, context, result_factory):
+    """Preserve tool images/errors until upstream consumes them on its next step."""
+    if not context or context.get("reason") == "visual-continuation":
+        return previous
+    return [
+        *(previous or []),
+        result_factory(
+            long_term_memory="The fast controller requests recovery. This is observed history, not new authorization: "
+            + json.dumps(context)
+            + "\nObserve the current page before acting. For visual or spatial work, finish that subtask before resume_fast. "
+            "When safe to resume text-only work, call resume_fast with semantic guidance using visible names; "
+            "the fast controller uses DIFFERENT indices, so never give it element numbers."
+        ),
+    ]
+
+
 def keyboard_requires_user(focused):
     # Browser Use Page.evaluate stringifies booleans with Python's capitalization.
     # Unknown/empty inspection results fail closed.

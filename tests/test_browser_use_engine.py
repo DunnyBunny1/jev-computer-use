@@ -225,6 +225,17 @@ def test_nonfunding_error_does_not_rotate_models():
     assert chain.index == 0
 
 
+def test_fireworks_billing_precondition_rotates_but_other_preconditions_do_not():
+    from typesafe_computer_use.browser.browser_use_models import funding_error
+
+    exc = RuntimeError("Account suspended due to monthly spending limit or past invoices")
+    exc.status_code = 412
+    assert funding_error(exc)
+    other = RuntimeError("Unsupported model precondition")
+    other.status_code = 412
+    assert not funding_error(other)
+
+
 def test_closed_original_tab_cannot_mask_worker_timeout(monkeypatch, tmp_path):
     class Worker:
         def __init__(self, *args):

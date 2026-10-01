@@ -195,6 +195,14 @@ def browser_operation(request):
                         buttons=1 if event == "mousePressed" else 0,
                     )
                 if kind == "fill":
+                    focused_safe = evaluate("""(() => {
+                      const e=document.activeElement;
+                      return !!e && !['password','file','hidden'].includes(e.type) &&
+                        !e.readOnly && e.getAttribute('aria-readonly')!=='true' &&
+                        (e.tagName==='INPUT'||e.tagName==='TEXTAREA'||e.isContentEditable);
+                    })()""")
+                    if focused_safe is not True:
+                        raise StalePage("Focused field changed; nothing typed")
                     call(
                         "Input.dispatchKeyEvent",
                         type="keyDown",
