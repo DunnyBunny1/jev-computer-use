@@ -31,6 +31,33 @@ class Browser:
             raise StalePage("Document changed during evaluation")
         return response.get("result", {}).get("value")
 
+    def read_document(self):
+        """Bounded rendered-document evidence; never enters the fast decision prompt."""
+        return self.evaluate("""(() => {
+          if (!document.body) return null;
+          const visible = e => !e.closest('[aria-hidden="true"],[inert],script,style,noscript,template') &&
+            e.checkVisibility({checkOpacity:true,checkVisibilityCSS:true});
+          const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+          const text=[]; let node, size=0, truncated=false;
+          while ((node=walker.nextNode())) {
+            const value=node.textContent.trim(), parent=node.parentElement;
+            if (!value || !parent || !visible(parent)) continue;
+            if (size+value.length+1>24000) {
+              const remaining=Math.max(0,24000-size-1);
+              if (remaining) text.push(value.slice(0,remaining));
+              truncated=true; break;
+            }
+            text.push(value); size+=value.length+1;
+          }
+          const anchors=[...document.querySelectorAll('a[href]')].filter(visible);
+          const links=anchors.slice(0,200).filter(e=>{if(e.href.length>4096){truncated=true;return false;}return true;})
+            .map(e=>{const label=e.innerText||e.getAttribute('aria-label')||'';
+              if(label.length>300) truncated=true;
+              return {text:label.slice(0,300),href:e.href};});
+          return {url:location.href,title:document.title,text:text.join('\\n'),links,
+            truncated:truncated||anchors.length>200};
+        })()""")
+
     def observe(self, screenshot=True):
         if getattr(self, "after_input", None):
             action, self.after_input = self.after_input, None

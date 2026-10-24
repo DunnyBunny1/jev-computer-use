@@ -36,6 +36,18 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(elements[0]["href"], action["href"])
         self.assertEqual(targets["CLICK"]["1"]["href"], action["href"])
 
+    def test_document_reader_captures_offscreen_rendered_evidence_with_explicit_limits(self):
+        supplied = browser.Browser.__new__(browser.Browser)
+        supplied.evaluate = Mock(return_value={"text": "observed"})
+        self.assertEqual(supplied.read_document(), {"text": "observed"})
+        subprocess.run(
+            ["node", str(Path(__file__).with_name("document-fixture.mjs"))],
+            input=supplied.evaluate.call_args.args[0],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
     def test_provider_io_requires_a_host_relay(self):
         with patch.object(model, "RELAY", None), self.assertRaisesRegex(RuntimeError, "relay is not configured"):
             model.post_json("jev", {"goal": "test"})

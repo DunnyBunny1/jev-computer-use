@@ -8,6 +8,8 @@ This package is independent of the repository's desktop application and its plat
 
 Disabled controls retain safe current values, checkbox/radio state and read-only state as observation evidence without becoming executable actions. Observed link actions retain their absolute destination through the model's action space. Password, file and hidden inputs are excluded.
 
+Hosts can call `Browser.read_document()` for final-answer evidence covering rendered text and links outside the viewport. It excludes hidden/inert content and script/style/template text, returns at most 24,000 text characters and 200 links, and reports omitted text or links through `truncated`. Link destinations are limited to 4,096 characters and labels to 300. Fast decisions continue using viewport snapshots; the document reader neither scrolls nor executes input actions.
+
 ## Build and verify
 
 From this package directory, build a wheel and source distribution using `uv build`. Run `python3 -m unittest discover -s tests` with Node.js available for the fixed DOM fixture; no browser, credentials, or inference are used. Install the wheel in an empty Python 3.12+ environment with `pip install --no-deps`, then import `jev_ultrafast.agent` from outside this source tree to check that the bundled snapshot is present.
