@@ -9,3 +9,5 @@ Lotus changes: provider IO uses an injected credential-free relay; field text us
 To update: compare the pinned upstream and skill sources, reapply these changes, update both revisions and this package's version, then run the package tests and consuming host's Jev relay/lifecycle checks. Build a new release wheel and update the host's version and digest pin. Do not replace the host's private browser with upstream's shared browser launcher.
 
 `Browser.read_document()` supplies bounded rendered-document text and links for host-owned final answers, including offscreen content. This read-only evidence operation is separate from viewport observations used by the decision loop.
+
+Version 0.1.3 adds click candidates for explicit columnheader roles and native table headers with pointer cursors. The host still validates the observed node and hit-tests immediately before input.

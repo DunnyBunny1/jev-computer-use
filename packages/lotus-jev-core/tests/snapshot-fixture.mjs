@@ -30,21 +30,25 @@ const controls = [
 ]
 const link = element('A', 'View listing', { attributes: { href: '../cars/42?currency=USD' },
   href: new URL('../cars/42?currency=USD', pageUrl).href })
+const sortable = element('TH', 'Last Name', { cursor: 'pointer', querySelector: () => null,
+  getBoundingClientRect: () => ({ x: 150, y: 10, width: 100, height: 20 }) })
+const staticHeader = element('TH', 'Static header', { querySelector: () => null })
 const candidates = [...controls, link]
-group.children = candidates
+group.children = [...candidates, sortable, staticHeader]
 const document = {
   body: {}, title: 'Fixture', documentElement: { scrollHeight: 600 }, activeElement: null,
   querySelectorAll(selector) {
     if (selector.startsWith('a,button,input,')) return candidates
     if (selector === 'input,textarea,select') return controls
+    if (selector === 'span,div,th') return [sortable, staticHeader]
     return []
   },
-  getElementById: () => null, elementFromPoint: () => link,
+  getElementById: () => null, elementFromPoint: x => x > 150 ? sortable : link,
   createTreeWalker: () => ({ nextNode: () => null }), createRange: () => ({}),
 }
 const context = { document, window: {}, location: { href: pageUrl }, performance: { timeOrigin: 1 },
   scrollX: 0, scrollY: 0, innerWidth: 800, innerHeight: 600, NodeFilter: { SHOW_TEXT: 4 },
-  getComputedStyle: () => ({ cursor: 'default', overflowY: 'visible' }) }
+  getComputedStyle: e => ({ cursor: e.cursor || 'default', overflowY: 'visible' }) }
 const snapshot = JSON.parse(JSON.stringify(vm.runInNewContext(readFileSync(process.argv[2], 'utf8'), context)))
 const byLabel = Object.fromEntries(snapshot.disabled_controls.map(control => [control.label, control]))
 assert.equal(byLabel['Disabled text'].value, 'Ready for QA')
@@ -58,3 +62,5 @@ assert.ok(!JSON.stringify(snapshot).includes('must-not-leak'))
 assert.equal(snapshot.actions.find(action => action.role === 'link').href,
   'https://listings.example/cars/42?currency=USD')
 assert.ok(!snapshot.actions.some(action => action.label.startsWith('Disabled')))
+assert.equal(snapshot.actions.find(action => action.label === 'Last Name').kind, 'click')
+assert.ok(!snapshot.actions.some(action => action.label === 'Static header'))

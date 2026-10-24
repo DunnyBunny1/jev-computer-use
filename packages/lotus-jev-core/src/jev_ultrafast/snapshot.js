@@ -22,7 +22,7 @@
       e.getAttribute('title') || e.getAttribute('placeholder') || '';
   };
   const roles=['button','link','checkbox','radio','switch','tab','menuitem','menuitemradio',
-    'option','gridcell','combobox','textbox','searchbox','spinbutton'];
+    'option','gridcell','columnheader','combobox','textbox','searchbox','spinbutton'];
   const selector='a,button,input,textarea,select,summary,label,[onclick],[tabindex],[contenteditable="true"],'+
     roles.map(role=>'[role="'+role+'"]').join(',');
   const role = e => {
@@ -57,7 +57,7 @@
   };
   const actions=[];
   const candidates=[...document.querySelectorAll(selector)];
-  for (const e of document.querySelectorAll('span,div')) {
+  for (const e of document.querySelectorAll('span,div,th')) {
     if (!e.matches(selector) && getComputedStyle(e).cursor==='pointer' &&
         !e.parentElement?.closest('a,button,label,[role=button],[role=link],[role=tab],[role=option]') && !e.querySelector(selector)) candidates.push(e);
   }
