@@ -6,9 +6,11 @@ The host supplies an existing private browser session, installs `jev_ultrafast.m
 
 This package is independent of the repository's desktop application and its platform dependencies. Its initial release extracts the five core implementation files from LotusOS commit `bbc121fe1a36580ef7f0f06a0f9022a4c374c02a` and adds operation-confidence recovery, disabled-control evidence, ordered waiting and read/report completion guidance. Legitimate waits are excluded from action-loop detection; recovery execution belongs to the host.
 
+Disabled controls retain safe current values, checkbox/radio state and read-only state as observation evidence without becoming executable actions. Observed link actions retain their absolute destination through the model's action space. Password, file and hidden inputs are excluded.
+
 ## Build and verify
 
-From this package directory, build a wheel and source distribution using `uv build`. Run `python3 -m unittest discover -s tests` without a browser, credentials, or inference. Install the wheel in an empty Python 3.12+ environment with `pip install --no-deps`, then import `jev_ultrafast.agent` from outside this source tree to check that the bundled snapshot is present.
+From this package directory, build a wheel and source distribution using `uv build`. Run `python3 -m unittest discover -s tests` with Node.js available for the fixed DOM fixture; no browser, credentials, or inference are used. Install the wheel in an empty Python 3.12+ environment with `pip install --no-deps`, then import `jev_ultrafast.agent` from outside this source tree to check that the bundled snapshot is present.
 
 ## Release and consume
 

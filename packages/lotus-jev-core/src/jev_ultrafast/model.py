@@ -57,6 +57,7 @@ def action_space(actions):
                 for k in (
                     "role",
                     "value",
+                    "href",
                     "checked",
                     "selected",
                     "expanded",

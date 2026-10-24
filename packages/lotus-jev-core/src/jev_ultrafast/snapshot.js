@@ -71,6 +71,7 @@
       rect:{x:r.x,y:r.y,w:r.width,h:r.height},
       context:e.parentElement?.innerText?.trim().slice(0,900)||'',
       position_in_parent:1+[...e.parentElement.children].indexOf(e)};
+    if (rname==='link' && typeof e.href==='string' && e.href) base.href=e.href;
     const peers=[...(e.parentElement.parentElement?.children||[])].filter(n=>n.tagName===e.parentElement.tagName && visible(n));
     if (peers.length>1) base.group={node:identity(e.parentElement.parentElement),position:1+peers.indexOf(e.parentElement),size:peers.length};
     if (!name(e) && e.parentElement.matches('li') && e.parentElement.querySelector('ul')) {
@@ -170,7 +171,17 @@
   const visual_surfaces=[...document.querySelectorAll('img,canvas,iframe,[role="slider"],input[type="range"]')]
     .filter(e=>{const r=e.getBoundingClientRect();return visible(e)&&r.width>1&&r.height>1&&r.bottom>0&&r.top<innerHeight&&r.right>0&&r.left<innerWidth;})
     .slice(0,30).map(e=>({kind:e.tagName.toLowerCase(),role:e.getAttribute('role'),label:name(e).slice(0,200)}));
-  const disabled_controls=candidates.filter(e=>safe(e)&&visible(e)&&(e.matches(":disabled")||e.closest('[aria-disabled="true"]'))).slice(0,40).map(e=>({role:role(e),label:name(e)||role(e),disabled:true,context:e.parentElement?.innerText?.slice(0,900)||""}));
+  const disabled_controls=candidates.filter(e=>safe(e)&&visible(e)&&(e.matches(":disabled")||e.closest('[aria-disabled="true"]'))).slice(0,40).map(e=>{
+    const result={role:role(e),label:name(e)||role(e),disabled:true,context:e.parentElement?.innerText?.slice(0,900)||""};
+    const control=e.tagName==='LABEL' ? e.control : e;
+    if (control && safe(control)) {
+      if ('value' in control) result.value=String(control.value);
+      if (['checkbox','radio'].includes(control.type)) result.checked=String(control.checked);
+      else if (['checkbox','radio'].includes(role(e)) && e.getAttribute('aria-checked')!==null) result.checked=e.getAttribute('aria-checked');
+      if ('readOnly' in control || e.hasAttribute('aria-readonly')) result.readonly=!!control.readOnly || e.getAttribute('aria-readonly')==='true';
+    }
+    return result;
+  });
   return {url:location.href,title:document.title,w:innerWidth,h:innerHeight,text,text_blocks,visual_surfaces,disabled_controls,
     writer_text:writerWords.join("\n").slice(0,6000),scroll:{y:scrollY,height},actions,marker,page_key,guards,omitted_actions};
 })()

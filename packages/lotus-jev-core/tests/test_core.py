@@ -1,5 +1,6 @@
 """Host injection and recovery behavior, without browsers or inference."""
 
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -13,6 +14,27 @@ from jev_ultrafast import agent, browser, model
 class CoreTests(unittest.TestCase):
     def test_snapshot_script_is_packaged_beside_browser_module(self):
         self.assertIn("__jevFast", browser.READ_STATE)
+
+    def test_snapshot_retains_disabled_values_and_absolute_links_without_sensitive_fields(self):
+        subprocess.run(
+            ["node", str(Path(__file__).with_name("snapshot-fixture.mjs")), str(Path(browser.__file__).with_name("snapshot.js"))],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    def test_action_space_retains_observed_link_destination(self):
+        action = {
+            "id": "link-1",
+            "kind": "click",
+            "node": 1,
+            "label": "View listing",
+            "role": "link",
+            "href": "https://listings.example/cars/42?currency=USD",
+        }
+        elements, targets, _ = model.action_space([action])
+        self.assertEqual(elements[0]["href"], action["href"])
+        self.assertEqual(targets["CLICK"]["1"]["href"], action["href"])
 
     def test_provider_io_requires_a_host_relay(self):
         with patch.object(model, "RELAY", None), self.assertRaisesRegex(RuntimeError, "relay is not configured"):
